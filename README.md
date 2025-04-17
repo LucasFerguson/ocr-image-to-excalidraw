@@ -42,3 +42,4 @@ tensorflow is needed for keras-ocr
 not working:
 pip install pypotrace
 ```
+
