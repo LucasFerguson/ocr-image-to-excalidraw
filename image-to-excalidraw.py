@@ -59,7 +59,7 @@ def preprocess_image(input_path, output_dir):
 	# Convert to grayscale.
 	logging.info("Converting image to grayscale")
 	gray = cv2.cvtColor(original, cv2.COLOR_BGR2GRAY)
-	gray_path = os.path.join(output_dir, "gray.png")
+	gray_path = os.path.join(output_dir, "1-gray.png")
 	cv2.imwrite(gray_path, gray)
 	logging.info("Saved grayscale image to %s", gray_path)
 	
@@ -67,7 +67,7 @@ def preprocess_image(input_path, output_dir):
 	logging.info("Applying binary thresholding")
 	# THRESH_BINARY_INV: makes dark strokes white (foreground) and background black.
 	ret, thresh = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY_INV)
-	thresh_path = os.path.join(output_dir, "threshold.png")
+	thresh_path = os.path.join(output_dir, "2-threshold.png")
 	cv2.imwrite(thresh_path, thresh)
 	logging.info("Saved threshold image to %s", thresh_path)
 	
@@ -110,7 +110,7 @@ def detect_shapes(binary_image, original_image, output_image_path):
 	  shape_image: Annotated image with drawn contours and shape labels
 	"""
 	logging.info("Detecting shapes from contours")
-	contours, hierarchy = cv2.findContours(binary_image.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+	contours, hierarchy = cv2.findContours(binary_image.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 	logging.info("Found %d contours", len(contours))
 	
 	# Make a copy of the original image for drawing
@@ -228,10 +228,15 @@ def generate_excalidraw_json(shapes, ocr_results):
 		width = shape['width']
 		height = shape['height']
 
+		# center
+		center_x = int(x + width / 2)
+		center_y = int(y + height / 2)
+
 		if shape['type'] == 'Rectangle' or shape['type'] == 'Square':
-			sb.Rectangle(x=x, y=y, width=width, height=height)
+			shape = sb.Rectangle(x=center_x, y=center_y, width=width, height=height)
 		elif shape['type'] == 'Circle':
-			sb.Ellipse(x=x, y=y, width=width, height=height)
+			shape = sb.Ellipse(x=center_x, y=center_y, width=width, height=height)
+
 		elif shape['type'] == 'Polygon':
 			# For polygons, create lines between vertices
 			contour = shape['contour']
@@ -413,10 +418,9 @@ def generate_excalidraw_markdown(excalidraw_json_data):
 
 def main():
 	# Define paths.
-	input_path = "input_images/testimage1.png"  # Change this to your image file.
-	input_path = "input_images/Netflix-High-Level-System-Architecture.png"  # Change this to your image file.
-	input_path = "input_images/Screenshot 2025-04-17 042813.png"  # Change this to your image file.
-
+	input_path = "input_images/testimage3.png"  # Change this to your image file.
+	# input_path = "input_images/Netflix-High-Level-System-Architecture.png"  # Change this to your image file.
+	# input_path = "input_images/Screenshot 2025-04-17 042813.png"  # Change this to your image file.
 
 	output_dir = "output/" + input_path.split(".")[0].split("/")[-1]  # Create a unique output directory based on the input image name.
 	os.makedirs(output_dir, exist_ok=True)
@@ -431,27 +435,25 @@ def main():
 	# vectorize_image(thresh_img, svg_output_path)
 	
 	# PART 2: Shape Detection.
-	shapes_output_path = os.path.join(output_dir, "detected_shapes.png")
-	shapes = []
-	# shapes, image = detect_shapes(thresh_img, original_img, shapes_output_path)
-	
+	shapes_output_path = os.path.join(output_dir, "3-detected_shapes.png")
+	shapes, image = detect_shapes(thresh_img, original_img, shapes_output_path)
 
 	# PART 3: OCR using Easy OCR.
-	ocr_output_path = os.path.join(output_dir, "ocr_output.png")
+	ocr_output_path = os.path.join(output_dir, "4-ocr_output.png")
 	ocr_results = perform_ocr_easy(original_img, ocr_output_path)
 	
 	logging.info("Pipeline complete. Check the '%s' folder for output images and SVG file.", output_dir)
 
 	# Now onto generating JSON for the Excalidraw file.
 	# This will be a separate function that takes the detected shapes and OCR results to create a JSON file.
-	json_output_path = os.path.join(output_dir, "excalidraw.json")
+	json_output_path = os.path.join(output_dir, "5-excalidraw.json")
 	excalidraw_data = generate_excalidraw_json(shapes, ocr_results)
 	with open(json_output_path, 'w') as json_file:
 		json.dump(excalidraw_data, json_file, indent=4)
 	logging.info("Saved Excalidraw JSON to %s", json_output_path)
 
 	# save markdown file
-	markdown_output_path = os.path.join(output_dir, "center cords test 6 03.22.42.excalidraw.md")
+	markdown_output_path = os.path.join(output_dir, "6-Drawing-for-Obsidian.excalidraw.md")
 	markdown_data = generate_excalidraw_markdown(excalidraw_data)
 	with open(markdown_output_path, 'w') as md_file:
 		md_file.write(markdown_data)
