@@ -250,7 +250,12 @@ def generate_excalidraw_json(shapes, ocr_results):
 		height = int(y2 - y1)  # Calculate text height
 		# Scale font size based on height, with some reasonable limits
 		font_size = min(max(height/2, 8), 36)  # Min 8, max 36
-		sb.Text(text, x=center_x, y=center_y, fontSize=font_size)
+		box = sb.Text(text, x=center_x, y=center_y, fontSize=font_size)
+		# some math I think is not needed anymore
+		# distance_shift_left = (center_x - box.width / 2) - box.x
+		# box.x -= distance_shift_left
+		box.x = int(x1)
+		box.y = int(y1)
 
 	# export data = sb.export_to_json()
 	return sb.export_to_json()
