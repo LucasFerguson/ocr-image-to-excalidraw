@@ -32,6 +32,8 @@ from PIL import Image
 import easyocr
 import json
 
+from Excalidraw_Interface import SketchBuilder
+
 # Configure logging with timestamp and level.
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s')
 
@@ -215,49 +217,143 @@ def perform_ocr_easy(original_image, output_image_path):
     
     return results
 
-# The JSON format for Excalidraw is a bit complex, so we will need to define the structure at some point. - lucas 2025-04-17
+# New fun to create Excalidraw JSON.
 def generate_excalidraw_json(shapes, ocr_results):
-	"""
-	Generates a JSON representation for Excalidraw based on detected shapes and OCR results.
-	
-	Parameters:
-	  - shapes: List of detected shapes with their properties.
-	  - ocr_results: List of OCR results with text and bounding boxes.
-	
-	Returns:
-	  A JSON object structured for Excalidraw.
-	"""
+	sb = SketchBuilder()
 
-	logging.info("Generating Excalidraw JSON")
-	excalidraw_elements = []
-	
+	# Process shapes first
 	for shape in shapes:
-		element = {
-			"type": "rectangle" if shape['type'] == "Rectangle" else "ellipse",
-			"x": shape['x'],
-			"y": shape['y'],
-			"width": shape['width'],
-			"height": shape['height'],
-			"angle": 0,
-			"fillColor": "#FFFFFF",
-			"strokeColor": "#000000",
-			"strokeWidth": 1,
-			"text": shape.get('label', '')
-		}
-		excalidraw_elements.append(element)
+		x = shape['x']
+		y = shape['y']
+		width = shape['width']
+		height = shape['height']
+
+		if shape['type'] == 'Rectangle' or shape['type'] == 'Square':
+			sb.Rectangle(x=x, y=y, width=width, height=height)
+		elif shape['type'] == 'Circle':
+			sb.Ellipse(x=x, y=y, width=width, height=height)
+		elif shape['type'] == 'Polygon':
+			# For polygons, create lines between vertices
+			contour = shape['contour']
+			for i in range(len(contour)):
+				start = contour[i][0]
+				end = contour[(i + 1) % len(contour)][0]
+				sb.Line((start[0], start[1]), (end[0], end[1]))
+
+	# Process OCR results
+	for bbox, text, conf in ocr_results:
+		# Get top-left coordinates from bbox
+		x = int(bbox[0][0])
+		y = int(bbox[0][1])
+		sb.Text(text, x=x, y=y)
+
+	# export data = sb.export_to_json()
+	return sb.export_to_json()
+
+
+# 	Creating Sketch Objects
+# Rectangles, Diamonds, Ellipses can be created with a center_x and center_y position. Width and height can also be set (defaults to 100). Other params can be set in kwargs.
+
+# from Excalidraw_Interface import SketchBuilder
+
+# sb = SketchBuilder()
+# sb.Rectangle(x = 0, y = 0)
+# sb.Diamond(x = 0, y = 0, width=50, height=20)
+# sb.Ellipse(x = 0, y = 0, backgroundColor='red')
+# Text, Lines, and Arrows have similar functions.
+
+# from Excalidraw_Interface import SketchBuilder
+
+# sb = SketchBuilder()
+# sb.Text('some text', x = 0, y = 0)
+# sb.Line((0,0), (100,100))
+# sb.Arrow((0,0), (100,100))
+# sb.DoubleArrow((0,0), (100,100))
+
+
+
+
+# My json creator before discovering the Excalidraw_Interface class.
+# The JSON format for Excalidraw is a bit complex, so we will need to define the structure at some point. - lucas 2025-04-17
+# def generate_excalidraw_json(shapes, ocr_results):
+# 	"""
+# 	Generates a JSON representation for Excalidraw based on detected shapes and OCR results.
 	
-	for bbox, text, _ in ocr_results:
-		element = {
-			"type": "text",
-			"x": int(bbox[0][0]),
-			"y": int(bbox[0][1]),
-			"text": text,
-			"fontSize": 20,
-			"color": "#000000"
-		}
-		excalidraw_elements.append(element)
+# 	Parameters:
+# 	  - shapes: List of detected shapes with their properties.
+# 	  - ocr_results: List of OCR results with text and bounding boxes.
 	
-	return excalidraw_elements
+# 	Returns:
+# 	  A JSON object structured for Excalidraw.
+# 	"""
+
+# 	logging.info("Generating Excalidraw JSON")
+# 	excalidraw_elements = []
+	
+# 	for shape in shapes:
+# 		element = {
+# 			"type": "rectangle" if shape['type'] == "Rectangle" else "ellipse",
+# 			"x": shape['x'],
+# 			"y": shape['y'],
+# 			"width": shape['width'],
+# 			"height": shape['height'],
+# 			"angle": 0,
+# 			"fillColor": "#FFFFFF",
+# 			"strokeColor": "#000000",
+# 			"strokeWidth": 1,
+# 			"text": shape.get('label', '')
+# 		}
+# 		excalidraw_elements.append(element)
+	
+# 	for bbox, text, _ in ocr_results:
+# 		element = {
+# 			"type": "text",
+# 			"x": int(bbox[0][0]),
+# 			"y": int(bbox[0][1]),
+# 			"text": text,
+# 			"fontSize": 20,
+# 			"color": "#000000"
+# 		}
+# 		excalidraw_elements.append(element)
+	
+# 	return excalidraw_elements
+
+# Old
+# def generate_excalidraw_markdown(excalidraw_json_data):
+# 	"""
+# 	Generates a markdown representation for Excalidraw JSON data.
+	
+# 	Parameters:
+# 	  - excalidraw_json_data: JSON data structured for Excalidraw.
+	
+# 	Returns:
+# 	  A markdown string formatted for Obsidian.
+# 	"""
+# 	markdown = "---\n"
+# 	markdown += "excalidraw-plugin: parsed\n"
+# 	markdown += "tags: [excalidraw]\n"
+# 	markdown += "---\n\n"
+# 	markdown += "== Switch to EXCALIDRAW VIEW in the MORE OPTIONS menu of this document. == You can decompress Drawing data with the command palette: 'Decompress current Excalidraw file'. For more info check in plugin settings under 'Saving'\n\n"
+# 	markdown += "# Excalidraw Data\n\n"
+# 	markdown += "## Text Elements\n%%\n"
+# 	markdown += "## Drawing\n```json\n"
+# 	markdown += "{\n"
+# 	markdown += "\"type\": \"excalidraw\",\n"
+# 	markdown += "\"version\": 2,\n"
+# 	markdown += "\"source\": \"https://github.com/zsviczian/obsidian-excalidraw-plugin/releases/tag/2.10.1\",\n"
+# 	markdown += "\"elements\": "
+# 	markdown += json.dumps(excalidraw_json_data, indent=4)
+# 	markdown += "\n"
+# 	markdown += "}\n"
+# 	markdown += "\n```\n%%\n"
+# 	return markdown
+
+
+
+
+
+
+
 
 # Wrap Excalidraw JSON in markdown for Obsidian
 
@@ -301,14 +397,7 @@ def generate_excalidraw_markdown(excalidraw_json_data):
 	markdown += "# Excalidraw Data\n\n"
 	markdown += "## Text Elements\n%%\n"
 	markdown += "## Drawing\n```json\n"
-	markdown += "{\n"
-	markdown += "\"type\": \"excalidraw\",\n"
-	markdown += "\"version\": 2,\n"
-	markdown += "\"source\": \"https://github.com/zsviczian/obsidian-excalidraw-plugin/releases/tag/2.10.1\",\n"
-	markdown += "\"elements\": "
 	markdown += json.dumps(excalidraw_json_data, indent=4)
-	markdown += ",\n"
-	markdown += "}\n"
 	markdown += "\n```\n%%\n"
 	return markdown
 
@@ -346,7 +435,7 @@ def main():
 	logging.info("Saved Excalidraw JSON to %s", json_output_path)
 
 	# save markdown file
-	markdown_output_path = os.path.join(output_dir, "Drawing 4 03.22.42.excalidraw.md")
+	markdown_output_path = os.path.join(output_dir, "Drawing 6 03.22.42.excalidraw.md")
 	markdown_data = generate_excalidraw_markdown(excalidraw_data)
 	with open(markdown_output_path, 'w') as md_file:
 		md_file.write(markdown_data)
