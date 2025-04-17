@@ -242,10 +242,15 @@ def generate_excalidraw_json(shapes, ocr_results):
 
 	# Process OCR results
 	for bbox, text, conf in ocr_results:
-		# Get top-left coordinates from bbox
-		x = int(bbox[0][0])
-		y = int(bbox[0][1])
-		sb.Text(text, x=x, y=y)
+		# Calculate center coordinates and height from the bounding box
+		x1, y1 = bbox[0]  # Top-left
+		x2, y2 = bbox[2]  # Bottom-right
+		center_x = int((x1 + x2) / 2)
+		center_y = int((y1 + y2) / 2)
+		height = int(y2 - y1)  # Calculate text height
+		# Scale font size based on height, with some reasonable limits
+		font_size = min(max(height/2, 8), 36)  # Min 8, max 36
+		sb.Text(text, x=center_x, y=center_y, fontSize=font_size)
 
 	# export data = sb.export_to_json()
 	return sb.export_to_json()
@@ -404,6 +409,10 @@ def generate_excalidraw_markdown(excalidraw_json_data):
 def main():
 	# Define paths.
 	input_path = "input_images/testimage1.png"  # Change this to your image file.
+	input_path = "input_images/Netflix-High-Level-System-Architecture.png"  # Change this to your image file.
+	input_path = "input_images/Screenshot 2025-04-17 042813.png"  # Change this to your image file.
+
+
 	output_dir = "output/" + input_path.split(".")[0].split("/")[-1]  # Create a unique output directory based on the input image name.
 	os.makedirs(output_dir, exist_ok=True)
 	
@@ -418,9 +427,11 @@ def main():
 	
 	# PART 2: Shape Detection.
 	shapes_output_path = os.path.join(output_dir, "detected_shapes.png")
-	shapes, image = detect_shapes(thresh_img, original_img, shapes_output_path)
+	shapes = []
+	# shapes, image = detect_shapes(thresh_img, original_img, shapes_output_path)
 	
-	# PART 3: OCR using Keras-OCR.
+
+	# PART 3: OCR using Easy OCR.
 	ocr_output_path = os.path.join(output_dir, "ocr_output.png")
 	ocr_results = perform_ocr_easy(original_img, ocr_output_path)
 	
@@ -435,7 +446,7 @@ def main():
 	logging.info("Saved Excalidraw JSON to %s", json_output_path)
 
 	# save markdown file
-	markdown_output_path = os.path.join(output_dir, "Drawing 6 03.22.42.excalidraw.md")
+	markdown_output_path = os.path.join(output_dir, "center cords test 6 03.22.42.excalidraw.md")
 	markdown_data = generate_excalidraw_markdown(excalidraw_data)
 	with open(markdown_output_path, 'w') as md_file:
 		md_file.write(markdown_data)
