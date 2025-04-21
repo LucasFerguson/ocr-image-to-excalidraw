@@ -1,5 +1,6 @@
 
 # Python Script to convert images into Excalidraw diagrams
+![Flow Diagram 2025-04-21](Project-Flow.excalidraw.svg)
 
 I created this project to be able to take photos of system architectural diagrams I've drawn in my notebooks or on whiteboards and convert them into Excalidraw diagrams. This allows me to easily edit them and share them with others digitally.
 
