@@ -418,7 +418,7 @@ def generate_excalidraw_markdown(excalidraw_json_data):
 
 def main():
 	# Define paths.
-	input_path = "input_images/testimage3.png"  # Change this to your image file.
+	input_path = "input_images/testimage1.png"  # Change this to your image file.
 	# input_path = "input_images/Netflix-High-Level-System-Architecture.png"  # Change this to your image file.
 	# input_path = "input_images/Screenshot 2025-04-17 042813.png"  # Change this to your image file.
 

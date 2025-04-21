@@ -15,6 +15,15 @@ I created this project to be able to take photos of system architectural diagram
 - pip install Pillow
 - pip install easyocr
 
+## Run the script
+1. activate your virtual environment
+```bash
+.venv\Scripts\activate.bat
+```
+2. run the script with the image file as an argument
+```bash
+python image-to-excalidraw.py
+``` 
 
 # Notes
 https://youtu.be/oyqNdcbKhew
