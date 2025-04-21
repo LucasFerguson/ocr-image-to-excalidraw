@@ -1,7 +1,7 @@
 ocrvenv
 
-
 input_images/*
+!input_images/testimage1-drawing-2025-04-17.excalidraw
 !input_images/testimage1.png
 output/*
 !output/testimage1
