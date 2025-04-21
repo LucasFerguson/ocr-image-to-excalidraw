@@ -15,6 +15,8 @@ I created this project to be able to take photos of system architectural diagram
 - pip install opencv-python
 - pip install Pillow
 - pip install easyocr
+- pip install Excalidraw-Interface
+  - https://pypi.org/project/Excalidraw-Interface/
 
 ## Run the script
 1. activate your virtual environment
@@ -41,6 +43,7 @@ NP_FLOAT_TYPES = {np.float16, np.float32, np.float64}
 NP_INT_TYPES = {np.int8, np.int16, np.int32, np.int64}
 NP_UINT_TYPES = {np.uint8, np.uint16, np.uint32, np.uint64}
 ```
+
 
 
 ## keras-ocr and notes for other things
