@@ -66,25 +66,105 @@ def preprocess_image(input_path, output_dir):
 	# Apply binary thresholding.
 	logging.info("Applying binary thresholding")
 
-	method = 'HSV Color Segmentation + Morphology gray'
+	# method = 'HSV Color Segmentation + Morphology gray'
 
-	# Convert to HSV and create masks for black/blue
-	hsv = cv2.cvtColor(original, cv2.COLOR_BGR2HSV)
+	# # Convert to HSV and create masks for black/blue
+	# hsv = cv2.cvtColor(original, cv2.COLOR_BGR2HSV)
 
-	# Blue mask (adjust hue range for your specific marker)
-	lower_blue = np.array([90, 50, 50])  # ~100-140° hue
-	upper_blue = np.array([130, 255, 255])
-	blue_mask = cv2.inRange(hsv, lower_blue, upper_blue)
+	# # Blue mask (adjust hue range for your specific marker)
+	# lower_blue = np.array([90, 50, 50])  # ~100-140° hue
+	# upper_blue = np.array([130, 255, 255])
+	# blue_mask = cv2.inRange(hsv, lower_blue, upper_blue)
 
-	# Black mask (low value channel)
-	lower_black = np.array([0, 0, 0])
-	upper_black = np.array([180, 255, 100])  # Max value=50 for darkness
-	black_mask = cv2.inRange(hsv, lower_black, upper_black)
+	# # Black mask (low value channel)
+	# lower_black = np.array([0, 0, 0])
+	# upper_black = np.array([180, 255, 100])  # Max value=50 for darkness
+	# black_mask = cv2.inRange(hsv, lower_black, upper_black)
 
-	# Combine masks and enhance
-	combined = cv2.bitwise_or(blue_mask, black_mask)
-	kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3,3))
-	thresh = cv2.morphologyEx(combined, cv2.MORPH_CLOSE, kernel, iterations=2)
+	# # Combine masks and enhance
+	# combined = cv2.bitwise_or(blue_mask, black_mask)
+	# kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3,3))
+	# thresh = cv2.morphologyEx(combined, cv2.MORPH_CLOSE, kernel, iterations=2)
+
+
+
+
+
+
+	# # 2. Adaptive Threshold + Contrast Enhancement
+	# method = 'adaptive-clahe'
+	
+	# # CLAHE for contrast enhancement
+	# clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+	# enhanced = clahe.apply(gray)
+
+	# # Adaptive threshold with different parameters
+	# thresh = cv2.adaptiveThreshold(enhanced, 255, 
+	# 							cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+	# 							cv2.THRESH_BINARY_INV, 21, 5)
+
+	# # Morphological cleanup
+	# kernel = np.ones((2,2), np.uint8)
+	# thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+	# thresh = cv2.dilate(thresh, kernel, iterations=1)
+
+
+	# # Option 1: Larger Morphological Kernel + Opening
+	
+	# method = 'adaptive-clahe-reduced-contrast'
+
+	# # CLAHE with reduced contrast amplification
+	# clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))  # Reduced clipLimit
+	# enhanced = clahe.apply(gray)
+
+	# # Adaptive threshold with larger block size
+	# thresh = cv2.adaptiveThreshold(enhanced, 255, 
+	# 							cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+	# 							cv2.THRESH_BINARY_INV, 21, 7)  # Increased C to 7
+
+	# # Morphological opening (erode->dilate) with larger kernel
+	# kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3,3))
+	# thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=2)
+
+
+	# Option 2: Median Blur + Adjusted Thresholding - Best so far 2025-06-14
+	method = 'median-blur-adaptive-thresh'
+	# Median blur for salt-and-pepper noise removal
+	blurred = cv2.medianBlur(gray, 3)
+
+	# Adaptive threshold with different parameters
+	thresh = cv2.adaptiveThreshold(blurred, 255, 
+								cv2.ADAPTIVE_THRESH_MEAN_C,  # Try mean instead of Gaussian
+								cv2.THRESH_BINARY_INV, 25, 5)
+
+	# Two-step morphological cleanup
+	kernel = cv2.getStructuringElement(cv2.MORPH_CROSS, (2,2))
+	thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+	thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+
+
+
+	# Option 3: Noise-Aware Threshold Fusion
+	# not as good as above
+
+
+	# # 3. Edge-Aware Threshold Fusion
+	# method = 'edge-aware-fusion-gray'
+
+	# # Dual processing paths
+	# edges = cv2.Canny(original, 50, 150)
+	# adapt = cv2.adaptiveThreshold(gray, 255, 
+	# 							cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+	# 							cv2.THRESH_BINARY_INV, 15, 3)
+
+	# # Combine edge + threshold info
+	# combined = cv2.bitwise_and(edges, adapt)
+	# kernel = cv2.getStructuringElement(cv2.MORPH_CROSS, (3,3))
+	# thresh = cv2.morphologyEx(combined, cv2.MORPH_CLOSE, kernel, iterations=2)
+
+
+
+
 
 
 	# Choose preprocessing method: 'threshold', 'adaptive', 'canny', or 'otsu'
@@ -161,15 +241,21 @@ def detect_shapes(binary_image, original_image, output_image_path):
 	"""
 	logging.info("Detecting shapes from contours")
 	contours, hierarchy = cv2.findContours(binary_image.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+	# contours, hierarchy = cv2.findContours(binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 	logging.info("Found %d contours", len(contours))
 	
 	# Make a copy of the original image for drawing
 	shape_image = original_image.copy()
 	shapes = []
-	
+    
+	# Pre-filter small noise contours (adjust 500 based on your image size)
+	area_threshold = 5
+	contours = [c for c in contours if cv2.contourArea(c) > area_threshold]
+	logging.info("Filtered contours to %d based on area threshold of %d", len(contours), area_threshold)
+
 	for idx, contour in enumerate(contours):
 		peri = cv2.arcLength(contour, True)
-		approx = cv2.approxPolyDP(contour, 0.04 * peri, True)
+		approx = cv2.approxPolyDP(contour, 0.015 * peri, True)  # Reduced epsilon
 		x, y, w, h = cv2.boundingRect(approx)
 		shape_type = "Unidentified"
 		
@@ -466,15 +552,18 @@ def generate_excalidraw_markdown(excalidraw_json_data):
 	markdown += "\n```\n%%\n"
 	return markdown
 
-def main():
-	# Define paths.
-	input_path = "input_images/Fledge_20250613_111426.jpg"  # Change this to your image file.
-	# input_path = "input_images/Netflix-High-Level-System-Architecture.png"  # Change this to your image file.
-	# input_path = "input_images/Screenshot 2025-04-17 042813.png"  # Change this to your image file.
 
-	output_dir = "output/excalidraw-testing/" + input_path.split(".")[0].split("/")[-1]  # Create a unique output directory based on the input image name.
-	os.makedirs(output_dir, exist_ok=True)
+
+
+# Function to run the entire pipeline.
+def run_pipeline(input_path, output_dir):
+	"""
+	Runs the entire pipeline from preprocessing to OCR and Excalidraw JSON generation.
 	
+	Parameters:
+	  - input_path: Path to the input image file.
+	  - output_dir: Directory where output files will be saved.
+	"""
 	# PART 1: Preprocessing and Vectorization.
 	original_img, gray_img, thresh_img = preprocess_image(input_path, output_dir)
 	if original_img is None:
@@ -485,7 +574,7 @@ def main():
 	# vectorize_image(thresh_img, svg_output_path)
 	
 	# PART 2: Shape Detection.
-	shapes_output_path = os.path.join(output_dir, "3-detected_shapes.png")
+	shapes_output_path = os.path.join(output_dir, "3-detected_shapes Reduced epsilon.png")
 	shapes, image = detect_shapes(thresh_img, original_img, shapes_output_path)
 
 	# PART 3: OCR using Easy OCR.
@@ -508,6 +597,44 @@ def main():
 	with open(markdown_output_path, 'w') as md_file:
 		md_file.write(markdown_data)
 	logging.info("Saved Excalidraw markdown to %s", markdown_output_path)
+
+
+
+def test_single_image(input_path, output_dir):
+	logging.info("Running test on single image: %s", input_path)
+	run_pipeline(input_path, output_dir)
+	logging.info("Test completed successfully.")
+
+
+def test_multiple_images(input_dir_batch, output_dir_batch):
+	logging.info("Running batch test on images in directory: %s", input_dir_batch)
+	for filename in os.listdir(input_dir_batch):
+		if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp')):
+			input_path = os.path.join(input_dir_batch, filename)
+			logging.info("Processing image: %s", input_path)
+			output_dir = os.path.join(output_dir_batch, filename.split(".")[0])
+			os.makedirs(output_dir, exist_ok=True)
+			run_pipeline(input_path, output_dir)
+	logging.info("Batch test completed successfully.")
+
+
+def main():
+	# Define paths.
+	# input_path = "input_images/Fledge_test2_20250613_111426.jpg"  # Change this to your image file.
+	# input_path = "input_images/testimage1.png"  # Change this to your image file.
+	# input_path = "input_images/Netflix-High-Level-System-Architecture.png"  # Change this to your image file.
+	# input_path = "input_images/Screenshot 2025-04-17 042813.png"  # Change this to your image file.
+
+	# output_dir = "output/" + input_path.split(".")[0].split("/")[-1]  # Create a unique output directory based on the input image name.
+	# os.makedirs(output_dir, exist_ok=True)
+	# test_single_image(input_path, output_dir)
+
+	# For batch processing, uncomment the following lines:
+	input_dir_batch = "input_images"  # Directory containing multiple images.
+	output_dir_batch = "output/batch_test_output"  # Directory to save batch outputs.
+	os.makedirs(output_dir_batch, exist_ok=True)
+	test_multiple_images(input_dir_batch, output_dir_batch)
+
 
 if __name__ == "__main__":
 	main()
