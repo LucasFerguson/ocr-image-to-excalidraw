@@ -65,9 +65,59 @@ def preprocess_image(input_path, output_dir):
 	
 	# Apply binary thresholding.
 	logging.info("Applying binary thresholding")
-	# THRESH_BINARY_INV: makes dark strokes white (foreground) and background black.
-	ret, thresh = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY_INV)
-	thresh_path = os.path.join(output_dir, "2-threshold.png")
+
+	method = 'HSV Color Segmentation + Morphology gray'
+
+	# Convert to HSV and create masks for black/blue
+	hsv = cv2.cvtColor(original, cv2.COLOR_BGR2HSV)
+
+	# Blue mask (adjust hue range for your specific marker)
+	lower_blue = np.array([90, 50, 50])  # ~100-140° hue
+	upper_blue = np.array([130, 255, 255])
+	blue_mask = cv2.inRange(hsv, lower_blue, upper_blue)
+
+	# Black mask (low value channel)
+	lower_black = np.array([0, 0, 0])
+	upper_black = np.array([180, 255, 100])  # Max value=50 for darkness
+	black_mask = cv2.inRange(hsv, lower_black, upper_black)
+
+	# Combine masks and enhance
+	combined = cv2.bitwise_or(blue_mask, black_mask)
+	kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3,3))
+	thresh = cv2.morphologyEx(combined, cv2.MORPH_CLOSE, kernel, iterations=2)
+
+
+	# Choose preprocessing method: 'threshold', 'adaptive', 'canny', or 'otsu'
+	# method = 'adaptive-erosion-iterations-2'
+
+	# # Adaptive threshold - better for images with varying illumination
+	# thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+	# 								cv2.THRESH_BINARY_INV, 11, 2)
+	# # Add mild erosion to remove noise while preserving details
+	# kernel = np.ones((1,1), np.uint8)
+	# thresh = cv2.erode(thresh, kernel, iterations=2)
+	# # thresh = cv2.Canny(thresh, 100, 200)
+	
+	# if method == 'threshold':
+	# 	# Basic binary threshold - makes dark strokes white (foreground) and background black
+	# 	ret, thresh = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY_INV)
+	# elif method == 'adaptive-erosion-less':
+	# 	# Adaptive threshold - better for images with varying illumination
+	# 	thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+	# 								 cv2.THRESH_BINARY_INV, 11, 2)
+	# 	# Add mild erosion to remove noise while preserving details
+	# 	kernel = np.ones((2,2), np.uint8)
+	# 	thresh = cv2.erode(thresh, kernel, iterations=1)
+	# elif method == 'canny':
+	# 	# Canny edge detection - good for finding edges/contours
+	# 	thresh = cv2.Canny(gray, 100, 200)
+	# elif method == 'otsu':
+	# 	# Otsu's method - automatically determines optimal threshold value
+	# 	ret, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+	filename_with_method = f"2-threshold-{method}.png"
+
+	thresh_path = os.path.join(output_dir, filename_with_method)
 	cv2.imwrite(thresh_path, thresh)
 	logging.info("Saved threshold image to %s", thresh_path)
 	
@@ -418,11 +468,11 @@ def generate_excalidraw_markdown(excalidraw_json_data):
 
 def main():
 	# Define paths.
-	input_path = "input_images/testimage1.png"  # Change this to your image file.
+	input_path = "input_images/Fledge_20250613_111426.jpg"  # Change this to your image file.
 	# input_path = "input_images/Netflix-High-Level-System-Architecture.png"  # Change this to your image file.
 	# input_path = "input_images/Screenshot 2025-04-17 042813.png"  # Change this to your image file.
 
-	output_dir = "output/" + input_path.split(".")[0].split("/")[-1]  # Create a unique output directory based on the input image name.
+	output_dir = "output/excalidraw-testing/" + input_path.split(".")[0].split("/")[-1]  # Create a unique output directory based on the input image name.
 	os.makedirs(output_dir, exist_ok=True)
 	
 	# PART 1: Preprocessing and Vectorization.
