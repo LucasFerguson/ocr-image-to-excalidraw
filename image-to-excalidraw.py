@@ -240,7 +240,7 @@ def detect_shapes(binary_image, original_image, output_image_path):
 	  shape_image: Annotated image with drawn contours and shape labels
 	"""
 	logging.info("Detecting shapes from contours")
-	contours, hierarchy = cv2.findContours(binary_image.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+	contours, hierarchy = cv2.findContours(binary_image.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 	# contours, hierarchy = cv2.findContours(binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 	logging.info("Found %d contours", len(contours))
 	
