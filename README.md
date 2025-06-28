@@ -11,6 +11,16 @@ I created this project to be able to take photos of system architectural diagram
 4. Convert to Excalidraw JSON format
 5. Save as Obsidian Excalidraw Markdown file
 
+Main Problem with this project:
+- Image thresholding is dependent on the image quality and lighting conditions, so this application will eventually need a way to adjust the thresholding parameters dynamically based on the image input.
+- Shape detection is creating a lot of small polygons that need to be merged into larger shapes. 
+- Shape detection should take advantage of element color to identify overlapping shapes.
+- Text detection needs to properly handle text orientation and size.
+- Performance: 
+  - Polygons are made up of many individual line segments, which leads to large JSON files and slow rendering in Excalidraw.
+    - Need to update the Excalidraw_Interface library to support lines with multiple segments or take advantage of Excalidraw's freehand drawing elements. 
+
+
 # Setup Instructions
 Create a virtual environment
 ```bash
