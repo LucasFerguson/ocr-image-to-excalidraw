@@ -1,17 +1,27 @@
 
 # Python Script to convert images into Excalidraw diagrams
-![Flow Diagram 2025-04-21](Project-Flow.excalidraw.svg)
+![Flow Diagram 2025-06-28](Project-Flow.excalidraw.png)
 
 I created this project to be able to take photos of system architectural diagrams I've drawn in my notebooks or on whiteboards and convert them into Excalidraw diagrams. This allows me to easily edit them and share them with others digitally.
 
 **Process Overview**
-1. Convert image to vectors
+1. Convert image to threshold version for line and shape detection with OpenCV
 2. Detect shapes with OpenCV
-3. Use OCR to Extract text and bounding boxes
+3. Use OCR to extract text and bounding boxes
 4. Convert to Excalidraw JSON format
 5. Save as Obsidian Excalidraw Markdown file
 
-# Install the following packages:
+# Setup Instructions
+Create a virtual environment
+```bash
+python -m venv .venv
+```
+Activate the virtual environment (Below command is for Windows)
+```bash
+.venv\Scripts\activate.bat
+```
+
+Install the following packages:
 - pip install opencv-python
 - pip install Pillow
 - pip install easyocr
@@ -19,39 +29,10 @@ I created this project to be able to take photos of system architectural diagram
   - https://pypi.org/project/Excalidraw-Interface/
 
 ## Run the script
-1. activate your virtual environment
-```bash
-.venv\Scripts\activate.bat
-```
-2. run the script with the image file as an argument
+1. Edit the script `image-to-excalidraw.py` to set the path to your image file.
+   - Change the `image_path` variable to point to your image file.
+   - Example: `image_path = 'path/to/your/image.png'`
+2. Run the script
 ```bash
 python image-to-excalidraw.py
 ``` 
-
-# Notes
-https://youtu.be/oyqNdcbKhew
-- keras_ocr seems like the best option for this as it supports using a GPU and has autoannotations 
-- easyocr is also a good option
-
-for keras_ocr there is an error in one of the dependencies: 
-- https://github.com/aleju/imgaug/issues/859
-- AttributeError: np.sctypes was removed in NumPy 2.0 release
-- Fix: with the following code in the __init__.py file of the imgaug library:
-
-```python
-NP_FLOAT_TYPES = {np.float16, np.float32, np.float64}
-NP_INT_TYPES = {np.int8, np.int16, np.int32, np.int64}
-NP_UINT_TYPES = {np.uint8, np.uint16, np.uint32, np.uint64}
-```
-
-
-
-## keras-ocr and notes for other things
-```
-pip install keras-ocr
-pip install tensorflow
-tensorflow is needed for keras-ocr
-
-not working:
-pip install pypotrace
-```

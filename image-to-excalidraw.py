@@ -1,26 +1,27 @@
 #!/usr/bin/env python3
 """
-Three-Stage Pipeline for Drawing Analysis
+Pipeline for Converting Hand-Drawn Images to Excalidraw Format
 
-Stage 1: Preprocess & Vectorize
-  - Loads the image and converts it to grayscale.
-  - Applies binary thresholding.
-  - Uses the Potrace library to generate an SVG vector file from the thresholded image.
-  (Expected outputs: 'gray.png', 'threshold.png', and 'vectorized.svg' in the output folder.)
+Stage 1: Preprocess Image
+	- Loads image and converts to grayscale
+	- Applies thresholding to identify drawing strokes
+	- Outputs 'gray.png' and 'threshold.png'
 
-Stage 2: Shape Detection
-  - Uses OpenCV to detect contours in the threshold image.
-  - Approximates each contour to determine whether it is a square, rectangle, circle, or an unspecified polygon.
-  - Draws these detected shapes with annotations on the original image.
-  (Expected output: 'detected_shapes.png'.)
+Stage 2: Shape Detection 
+	- Detects contours and approximates basic shapes
+	- Identifies rectangles, squares, circles, polygons
+	- Outputs 'detected_shapes.png' with annotations
 
-Stage 3: OCR using Keras-OCR
-  - Converts the original image to RGB and processes it with a pretrained Keras-OCR pipeline.
-  - Logs each detected text snippet with its bounding box.
-  - Uses keras-ocr’s built-in annotation function to produce an image showing text and bounding boxes.
-  (Expected output: 'ocr_output.png'.)
-  
-The logging output will display progress details and key values from each step.
+Stage 3: OCR with EasyOCR
+	- Detects and recognizes text in image
+	- Outputs 'ocr_output.png' with detected text and bounds
+
+Stage 4: Excalidraw Export
+	- Converts detected shapes and text to Excalidraw JSON format
+	- Generates Obsidian-compatible markdown file
+	- Outputs 'excalidraw.json' and '.excalidraw.md' files
+
+Logs progress details at each stage.
 """
 
 import logging
@@ -39,12 +40,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s: %(m
 
 def preprocess_image(input_path, output_dir):
 	"""
-	Loads an image, converts it to grayscale, and applies binary thresholding.
-	
-	Saves:
-	  - 'gray.png': Grayscale version.
-	  - 'threshold.png': Binary image where drawing strokes become white on a black background.
-	
+	Loads an image, converts it to grayscale, and applies thresholding.
 	Returns:
 	  original: The loaded original BGR image.
 	  gray: The grayscale image.
@@ -229,15 +225,21 @@ def preprocess_image(input_path, output_dir):
 
 def detect_shapes(binary_image, original_image, output_image_path):
 	"""
-	Detect contours in the thresholded binary image and approximate shapes.
+	Takes a binary image, detects shapes, and annotates them on the original image.
 	
-	For each contour, if it has:
-	  - Four vertices → classified as Square (if aspect ratio nearly 1) or Rectangle.
-	  - More than 4 vertices → if circularity is high, classified as a Circle; otherwise as a Polygon.
+	Identifies:
+	- Squares/Rectangles: 4 vertices
+	- Circles: High circularity
+	- Polygons: Other closed shapes
+	
+	Args:
+		binary_image: Thresholded binary image
+		original_image: Original color image for drawing
+		output_image_path: Where to save annotated image
 	
 	Returns:
-	  shapes: List of dictionaries containing shape information (type, position, dimensions)
-	  shape_image: Annotated image with drawn contours and shape labels
+		shapes: List of detected shapes with properties
+		shape_image: Image with shape annotations
 	"""
 	logging.info("Detecting shapes from contours")
 	contours, hierarchy = cv2.findContours(binary_image.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -247,7 +249,7 @@ def detect_shapes(binary_image, original_image, output_image_path):
 	# Make a copy of the original image for drawing
 	shape_image = original_image.copy()
 	shapes = []
-    
+	
 	# Pre-filter small noise contours (adjust 500 based on your image size)
 	area_threshold = 5
 	contours = [c for c in contours if cv2.contourArea(c) > area_threshold]
@@ -304,54 +306,49 @@ def detect_shapes(binary_image, original_image, output_image_path):
 
 
 def perform_ocr_easy(original_image, output_image_path):
-    """
-    Uses EasyOCR to perform OCR on the image.
+	"""
+	Performs OCR using EasyOCR to detect and recognize text in images.
 
-    Steps:
-      - Optionally converts the image if needed.
-      - Initializes an EasyOCR reader for the English language.
-      - Processes the image to obtain bounding boxes, recognized text, and confidence values.
-      - Logs each detected text string along with its bounding box and confidence.
-      - Draws annotations (bounding boxes and text) on the image.
-      - Saves the annotated image.
+	Args:
+		original_image: Input image array
+		output_image_path: Path to save annotated image
+		
+	Returns:
+		List of (bbox, text, confidence) tuples for detected text
+	"""
+	logging.info("Performing OCR using EasyOCR")
 
-    Returns:
-      results: A list of OCR predictions, where each prediction is in the form: 
-               [bounding box, text string, confidence score]
-    """
-    logging.info("Performing OCR using EasyOCR")
-    
-    # Create a copy of the original image to draw annotations
-    annotated_image = original_image.copy()
-    
-    # Initialize the EasyOCR reader for English (add more languages if needed)
-    reader = easyocr.Reader(['en'], gpu=False)
-    logging.info("Initialized EasyOCR reader; processing image...")
-    
-    # Process the image. Each result is a tuple: (bbox, text, confidence)
-    results = reader.readtext(original_image)
-    
-    for bbox, text, conf in results:
-        # Log the detection: convert each bounding box point to an integer list for clarity.
-        bbox_int = [list(map(int, point)) for point in bbox]
-        logging.info("Detected OCR text '%s' with box %s and confidence %.2f", text, bbox_int, conf)
-        
-        # Convert the bounding box list to a NumPy array for drawing
-        pts = np.array(bbox, dtype=np.int32).reshape((-1, 1, 2))
-        cv2.polylines(annotated_image, [pts], isClosed=True, color=(0, 255, 0), thickness=2)
-        
-        # Instead of casting the entire bbox to an int, extract the top-left coordinate.
-        # bbox[0] should be the top-left corner if the points are ordered.
-        x, y = int(bbox[0][0]), int(bbox[0][1])
-        text_position = (x, y - 10)
-        
-        cv2.putText(annotated_image, text, text_position, 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), thickness=1, lineType=cv2.LINE_AA)
-    
-    cv2.imwrite(output_image_path, annotated_image)
-    logging.info("Saved OCR annotated image to %s", output_image_path)
-    
-    return results
+	# Create a copy of the original image to draw annotations
+	annotated_image = original_image.copy()
+
+	# Initialize the EasyOCR reader for English (add more languages if needed)
+	reader = easyocr.Reader(['en'], gpu=False)
+	logging.info("Initialized EasyOCR reader; processing image...")
+
+	# Process the image. Each result is a tuple: (bbox, text, confidence)
+	results = reader.readtext(original_image)
+
+	for bbox, text, conf in results:
+		# Log the detection: convert each bounding box point to an integer list for clarity.
+		bbox_int = [list(map(int, point)) for point in bbox]
+		logging.info("Detected OCR text '%s' with box %s and confidence %.2f", text, bbox_int, conf)
+		
+		# Convert the bounding box list to a NumPy array for drawing
+		pts = np.array(bbox, dtype=np.int32).reshape((-1, 1, 2))
+		cv2.polylines(annotated_image, [pts], isClosed=True, color=(0, 255, 0), thickness=2)
+		
+		# Instead of casting the entire bbox to an int, extract the top-left coordinate.
+		# bbox[0] should be the top-left corner if the points are ordered.
+		x, y = int(bbox[0][0]), int(bbox[0][1])
+		text_position = (x, y - 10)
+		
+		cv2.putText(annotated_image, text, text_position, 
+					cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), thickness=1, lineType=cv2.LINE_AA)
+
+	cv2.imwrite(output_image_path, annotated_image)
+	logging.info("Saved OCR annotated image to %s", output_image_path)
+
+	return results
 
 # New fun to create Excalidraw JSON.
 def generate_excalidraw_json(shapes, ocr_results):
